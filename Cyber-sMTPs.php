@@ -1,18 +1,34 @@
-class CyberSMTPs {
+<?php
+/*
+Plugin Name: CyberSMTPs
+Plugin URI: https://cyberpanel.net/managed-email-service
+Description: Easy to use SMTP Plugin.
+Version: 1.0
+Author: Usman Nasir
+Author URI: https://cyberpanel.net/
+License: GPL2
+*/
 
-    private $logs_per_page = 10; // Number of logs per page
+if (!defined('ABSPATH')) {
+    exit; // Exit if accessed directly.
+}
 
-    public function __construct() {
+class CyberSMTPs
+{
+
+    public function __construct()
+    {
         register_activation_hook(__FILE__, array($this, 'create_email_logs_table'));
         add_action('admin_menu', array($this, 'create_menu'));
         add_action('admin_init', array($this, 'register_settings'));
         add_action('phpmailer_init', array($this, 'setup_smtp'));
-        add_filter('wp_mail', array($this, 'log_email'), 10, 1);
+        add_filter('wp_mail', array($this, 'log_email'), 10, 1); //
         add_action('admin_post_send_test_email', array($this, 'send_test_email'));
         add_action('admin_notices', array($this, 'smtp_settings_notice'));
     }
 
-    public function smtp_settings_notice() {
+    public function smtp_settings_notice()
+    {
         $options = get_option('cybersmtps_options');
 
         if (empty($options['smtp_host']) || empty($options['smtp_port']) ||
@@ -28,7 +44,8 @@ class CyberSMTPs {
         }
     }
 
-    public function create_email_logs_table() {
+    public function create_email_logs_table()
+    {
         global $wpdb;
         $table_name = $wpdb->prefix . 'cybersmtps_email_logs';
         $charset_collate = $wpdb->get_charset_collate();
@@ -46,7 +63,8 @@ class CyberSMTPs {
         dbDelta($sql);
     }
 
-    public function create_menu() {
+    public function create_menu()
+    {
         add_options_page(
             'CyberSMTPs Settings',
             'CyberSMTPs',
@@ -56,11 +74,13 @@ class CyberSMTPs {
         );
     }
 
-    public function register_settings() {
+    public function register_settings()
+    {
         register_setting('cybersmtps_settings', 'cybersmtps_options', array($this, 'sanitize_options'));
     }
 
-    public function sanitize_options($options) {
+    public function sanitize_options($options)
+    {
         $options['from_email'] = sanitize_email($options['from_email']);
         $options['from_name'] = sanitize_text_field($options['from_name']);
         $options['smtp_host'] = sanitize_text_field($options['smtp_host']);
@@ -71,7 +91,8 @@ class CyberSMTPs {
         return $options;
     }
 
-    public function settings_page() {
+    public function settings_page()
+    {
         ?>
         <div class="wrap">
             <h1>CyberSMTPs Settings</h1>
@@ -172,7 +193,7 @@ class CyberSMTPs {
                     <?php submit_button('Send Test Email'); ?>
                 </form>
             </div>
-            <div id="email-logs" class="tab-content">
+            <div id="email-logs" class="tab-content" style="display: none;">
                 <h2>Email Logs</h2>
                 <?php $this->display_email_logs(); ?>
             </div>
@@ -191,7 +212,8 @@ class CyberSMTPs {
         <?php
     }
 
-    public function setup_smtp($phpmailer) {
+    public function setup_smtp($phpmailer)
+    {
         $options = get_option('cybersmtps_options', array());
 
         $phpmailer->isSMTP();
@@ -210,7 +232,8 @@ class CyberSMTPs {
         }
     }
 
-    public function log_email($args) {
+    public function log_email($args)
+    {
         global $wpdb;
         $table_name = $wpdb->prefix . 'cybersmtps_email_logs';
         $wpdb->insert(
@@ -224,14 +247,29 @@ class CyberSMTPs {
         return $args;
     }
 
-    public function display_email_logs() {
+    public function display_email_logs()
+    {
         global $wpdb;
-
         $table_name = $wpdb->prefix . 'cybersmtps_email_logs';
-        $current_page = isset($_GET['paged']) ? max(1, intval($_GET['paged'])) : 1;
-        $offset = ($current_page - 1) * $this->logs_per_page;
 
-        $logs = $wpdb->get_results("SELECT * FROM $table_name ORDER BY date_sent DESC LIMIT $offset, $this->logs_per_page");
+        // Pagination variables
+        $per_page = 10; // Number of logs per page
+        $page = isset($_GET['page']) ? absint($_GET['page']) : 1;
+        $offset = ($page - 1) * $per_page;
+
+        // Ensure offset is non-negative
+        if ($offset < 0) {
+            $offset = 0;
+        }
+
+        // Retrieve logs with pagination
+        $logs = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT * FROM $table_name ORDER BY date_sent DESC LIMIT %d OFFSET %d",
+                $per_page,
+                $offset
+            )
+        );
 
         if ($logs) {
             echo '<table class="widefat fixed" cellspacing="0">';
@@ -249,30 +287,45 @@ class CyberSMTPs {
             echo '</tbody>';
             echo '</table>';
 
+            // Pagination links
             $total_logs = $wpdb->get_var("SELECT COUNT(id) FROM $table_name");
-
-            $total_pages = ceil($total_logs / $this->logs_per_page);
+            $total_pages = ceil($total_logs / $per_page);
 
             if ($total_pages > 1) {
-                echo '<div class="tablenav bottom">';
-                echo '<div class="tablenav-pages">';
-                echo paginate_links(array(
-                    'base' => add_query_arg('paged', '%#%'),
+                $page_links = paginate_links(array(
+                    'base' => add_query_arg('page', '%#%'),
                     'format' => '',
-                    'prev_text' => __('&laquo;'),
-                    'next_text' => __('&raquo;'),
+                    'prev_text' => __('&laquo; Previous'),
+                    'next_text' => __('Next &raquo;'),
                     'total' => $total_pages,
-                    'current' => $current_page
+                    'current' => $page
                 ));
-                echo '</div>';
-                echo '</div>';
+
+                if ($page_links) {
+                    echo '<div class="tablenav">';
+                    echo '<div class="tablenav-pages">';
+                    echo '<span class="pagination-count">';
+                    printf(
+                        __('%d log(s)'),
+                        $total_logs
+                    );
+                    echo '</span>';
+                    echo '<span class="pagination-links">';
+                    echo $page_links;
+                    echo '</span>';
+                    echo '</div>';
+                    echo '</div>';
+                }
             }
         } else {
             echo '<p>No email logs found.</p>';
         }
     }
 
-    public function send_test_email() {
+
+
+    public function send_test_email()
+    {
         if (!isset($_POST['_wpnonce']) || !wp_verify_nonce($_POST['_wpnonce'], 'send_test_email_nonce')) {
             wp_die('Nonce verification failed.');
         }
@@ -293,3 +346,4 @@ class CyberSMTPs {
 }
 
 new CyberSMTPs();
+?>
