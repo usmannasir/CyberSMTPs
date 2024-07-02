@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="68bd7537-80eb-4d51-b1e4-d372d44d2454" name="cybersmtp">
+        <fileTransfer accessType="SFTP" host="95.217.248.69" port="22" sshConfigId="4c148e65-c14e-470b-892a-340835d657f7" sshConfig="wpmau2217@95.217.248.69:22 key" keyPair="true">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" keepAliveTimeout="0" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>
